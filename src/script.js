@@ -74,7 +74,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 3;
 renderer.setSize(sizes.width, sizes.height);
 renderer.setPixelRatio(sizes.pixelRatio);
-renderer.setClearColor("gray");
+renderer.setClearColor("black");
 
 // Enable shadows
 renderer.shadowMap.enabled = true;
@@ -106,7 +106,7 @@ gltfLoader.load("./suzanne.glb", (gltf) => {
   suzanne.traverse((child) => {
     if (child.isMesh) {
       child.material = material;
-      child.material.uniforms.uColor.value.set("#A9A9A9");
+      child.material.uniforms.uColor.value.set("white");
       child.castShadow = true; // Enable shadow casting for Suzanne
       child.receiveShadow = true; // Enable shadow receiving for Suzanne
     }
@@ -121,7 +121,7 @@ const floorGeometry = new THREE.CircleGeometry(5, 64); // Radius 5, with 64 segm
 const floorMaterial = new THREE.MeshStandardMaterial({
   color: "#1e90ff", // Water-like color (adjust as needed)
   transparent: true,
-  opacity: 0.8, // Some transparency to make it look like water
+  opacity: 0.5, // Some transparency to make it look like water
   side: THREE.DoubleSide, // Render both sides of the circle
 });
 
@@ -150,6 +150,27 @@ const tourusKnot = new THREE.Mesh(tourusKnotGeometry, material)
 tourusKnot.position.x = 3
 scene.add(tourusKnot)
 
+
+const directionalLightHelper = new THREE.Mesh(
+  new THREE.PlaneGeometry(1, 1),
+  new THREE.MeshBasicMaterial()
+);
+
+directionalLightHelper.material.color.setRGB(0.1, 0.1, 1);
+directionalLightHelper.position.set(0, 0, 3);
+directionalLightHelper.material.side = THREE.DoubleSide;
+scene.add(directionalLightHelper);
+
+const pointLightHelper = new THREE.Mesh(
+  new THREE.IcosahedronGeometry(0.1, 2),
+  new THREE.MeshBasicMaterial()
+);
+
+pointLightHelper.material.color.setRGB(1, 0.1, 0.1);
+pointLightHelper.position.set(0, 2.5, 0);
+scene.add(pointLightHelper);
+
+
 /**
  * Animate
  */
@@ -161,6 +182,7 @@ const tick = () => {
   // Rotate objects
   if (suzanne) {
     suzanne.rotation.y = elapsedTime * 0.1;
+    tourusKnot.rotation.y = elapsedTime * 0.3;
   }
 
   // Update controls
