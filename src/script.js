@@ -20,6 +20,9 @@ const scene = new THREE.Scene();
 // Loaders
 const gltfLoader = new GLTFLoader();
 
+const debugObject = {}
+
+
 /**
  * Sizes
  */
@@ -59,9 +62,6 @@ camera.position.y = 5;
 camera.position.z = 10;
 scene.add(camera);
 
-// Controls
-const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = true;
 
 /**
  * Renderer
@@ -83,92 +83,65 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Optional, softer shadows
 /**
  * Material
  */
-const materialParameters = {};
-materialParameters.color = "#ffffff";
+const geometry = new THREE.PlaneGeometry(2, 2, 500, 500);
+geometry.deleteAttribute('normal');
+geometry.deleteAttribute('uv');
+debugObject.depthColor = '#151c37';
+debugObject.surfaceColor = '#ff4000';
+
+
 
 const material = new THREE.ShaderMaterial({
   vertexShader: shadingVertexShader,
   fragmentShader: shadingFragmentShader,
+  side: THREE.DoubleSide,
   uniforms: {
-    uColor: new THREE.Uniform(new THREE.Color(materialParameters.color)),
-  },
+    uTime: { value: 0 },
+
+    uBigWavesElevation: { value: 0.2 },
+    uBigWavesFrequency: { value: new THREE.Vector2(2.5, 1.5) }, // вектор 2 означает направление по - x, y
+    uBigWavesSpeed: { value: 0.5 },
+
+    uSmallWavesElevation: { value: 0.15 },
+    uSmallWavesFrequency: { value: 3.0 },
+    uSmallWavesSpeed: { value: 0.2 },
+    uSmallWavesIterations: { value: 4 },
+
+
+    udDephColor: { value: new THREE.Color(debugObject.depthColor) },
+    uSurfaceColor: { value: new THREE.Color(debugObject.surfaceColor) },
+    uColorOffset: { value: 0.0925 },
+    uColorMultiplier: { value: 1.0 },
+
+
+  }
 });
+const mesh = new THREE.Mesh(geometry, material);
+mesh.rotation.x = Math.PI * 0.5;
+scene.add(mesh);
 
-gui.addColor(materialParameters, "color").onChange(() => {
-  material.uniforms.uColor.value.set(materialParameters.color);
-});
+camera.position.z = 2;
+camera.position.y = 2;
+const controls = new OrbitControls(camera, renderer.domElement);
 
-// Suzanne
-let suzanne = null;
-gltfLoader.load("./suzanne.glb", (gltf) => {
-  suzanne = gltf.scene;
-  suzanne.rotation.y = Math.PI;
-  suzanne.traverse((child) => {
-    if (child.isMesh) {
-      child.material = material;
-      child.material.uniforms.uColor.value.set("white");
-      child.castShadow = true; // Enable shadow casting for Suzanne
-      child.receiveShadow = true; // Enable shadow receiving for Suzanne
-    }
-  });
-  scene.add(suzanne);
-});
-
-// Create a circular floor
-const floorGeometry = new THREE.CircleGeometry(5, 64); // Radius 5, with 64 segments for smoothness
-
-// Create a material for the floor (you can modify this to resemble water)
-const floorMaterial = new THREE.MeshStandardMaterial({
-  color: "#1e90ff", // Water-like color (adjust as needed)
-  transparent: true,
-  opacity: 0.5, // Some transparency to make it look like water
-  side: THREE.DoubleSide, // Render both sides of the circle
-});
-
-// Create the mesh with geometry and material
-const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-
-// Rotate it to lay flat (horizontal plane)
-floor.rotation.x = -Math.PI / 2; // Rotate by 90 degrees along the X-axis
-
-// Position it at the desired height (0 for ground level)
-floor.position.y = -1.2; // You can adjust this value as needed
-
-// Add the circular floor to the scene
-scene.add(floor);
-
-const sphery = new THREE.Mesh(
-  new THREE.SphereGeometry(1, 32, 32),
-  material
-);
-sphery.position.x = -3;
-scene.add(sphery);
-
-const tourusKnotGeometry = new THREE.TorusKnotGeometry(0.8, 0.2, 128, 32)
- 
-const tourusKnot = new THREE.Mesh(tourusKnotGeometry, material)
-tourusKnot.position.x = 3
-scene.add(tourusKnot)
+gui.add(mesh.material.uniforms.uBigWavesElevation, 'value').min(0).max(2).step(0.01).name('высота волны');
+gui.add(mesh.material.uniforms.uBigWavesFrequency.value, 'x').min(0).max(10).step(0.01).name('частота волны по x');
+gui.add(mesh.material.uniforms.uBigWavesFrequency.value, 'y').min(0).max(10).step(0.01).name('частота волны по y');
+gui.add(mesh.material.uniforms.uBigWavesSpeed, 'value').min(0).max(5).step(0.01).name('скорость волны');
 
 
-const directionalLightHelper = new THREE.Mesh(
-  new THREE.PlaneGeometry(1, 1),
-  new THREE.MeshBasicMaterial()
-);
-
-directionalLightHelper.material.color.setRGB(0.1, 0.1, 1);
-directionalLightHelper.position.set(0, 0, 3);
-directionalLightHelper.material.side = THREE.DoubleSide;
-scene.add(directionalLightHelper);
-
-const pointLightHelper = new THREE.Mesh(
-  new THREE.IcosahedronGeometry(0.1, 2),
-  new THREE.MeshBasicMaterial()
-);
-
-pointLightHelper.material.color.setRGB(1, 0.1, 0.1);
-pointLightHelper.position.set(0, 2.5, 0);
-scene.add(pointLightHelper);
+gui.addColor(debugObject, 'depthColor').name('цвет глубины').onChange(() => {
+  mesh.material.uniforms.udDephColor.value.set(debugObject.depthColor);
+})
+gui.addColor(debugObject, 'surfaceColor').name('цвет поверхности').onChange(() => {
+  mesh.material.uniforms.uSurfaceColor.value.set(debugObject.surfaceColor);
+})
+gui.add(mesh.material.uniforms.uColorOffset, 'value').min(0).max(5).step(0.01).name('смещение цвета');
+gui.add(mesh.material.uniforms.uColorMultiplier, 'value').min(0).max(10).step(0.01).name('множитель цвета');
+gui.add(mesh.material.uniforms.uSmallWavesElevation, 'value').min(0).max(2).step(0.01).name('высота волны');
+gui.add(mesh.material.uniforms.uSmallWavesFrequency, 'value').min(0).max(30).step(0.01).name('частота волны');
+gui.add(mesh.material.uniforms.uSmallWavesSpeed, 'value').min(0).max(5).step(0.01).name('скорость волны');
+gui.add(mesh.material.uniforms.uSmallWavesIterations, 'value').min(0).max(5).step(1.0).name('количество волны');
 
 
 /**
@@ -180,11 +153,7 @@ const tick = () => {
   const elapsedTime = clock.getElapsedTime();
 
   // Rotate objects
-  if (suzanne) {
-    suzanne.rotation.y = elapsedTime * 0.1;
-    tourusKnot.rotation.y = elapsedTime * 0.3;
-  }
-
+  mesh.material.uniforms.uTime.value = elapsedTime;
   // Update controls
   controls.update();
 

@@ -1,61 +1,53 @@
-uniform vec3 uColor;
+ precision mediump float;
 
-varying vec3 vNormal;
+varying vec2 vUv;
+varying float vElevation;
 varying vec3 vPosition;
 
-#include ../includes/ambientLight.glsl
-#include ../includes/directionalLight.glsl
+
+uniform vec3 udDephColor;
+uniform vec3 uSurfaceColor;
+uniform float uColorOffset;
+uniform float uColorMultiplier;
+varying vec3 vNormal;
+
 #include ../includes/pointLight.glsl
-
-
 
 void main()
 {
-
+  vec3 viewDirection = normalize(vPosition - cameraPosition);
   vec3 normal = normalize(vNormal);
 
-    vec3 viewDirection = normalize(vPosition - cameraPosition);
 
-    vec3 color = uColor;
 
-    //Light
-    vec3 light = vec3(0.0, 0.0, 0.0);
 
-// light += ambientLight(
-//     vec3(0.1216, 0.9608, 0.0431),
-//     0.03
-// );
-     light += pointLight(
-    vec3(1.1, 0.1, 0.1),  // Light color
-    0.2,                  // Light intensity
-    normal,               //Normal
-    vec3(0.0, 2.5, 2.0),
-     viewDirection,
-     20.0,
-     vPosition,
-     0.25
-    );
-     light += pointLight(
-    vec3(0.1, 1.0, 0.0),  // Light color
-    0.2,                  // Light intensity
-    normal,               //Normal
-    vec3(-2.0, 2.0, 2.0),
-     viewDirection,
-     1.0,
-     vPosition,
-     0.25
-    );
+  float mixStrength = (vElevation + uColorOffset) * uColorMultiplier;
+    vec3 color = mix(udDephColor, uSurfaceColor, mixStrength);
+    mixStrength = smoothstep(0.0, 1.0, mixStrength);
 
-   light += directionalLight(
-    vec3(0.0157, 0.1529, 0.8471),  // Light color
-    0.4,                  // Light intensity
-    normal,               //Normal
-    vec3(0, 12, 0),  // Light position
-    viewDirection,         //View Direction
-    10.0                  // Specular Power
-    );
-    
-     color *= light;
+    vec3 light = vec3(0.0);
+
+  light += pointLight(
+    vec3(1.0),
+    10.0,
+    normal,
+    vec3(0.8824, 0.9176, 0.8039),
+    viewDirection,
+    30.0,
+    vPosition,
+    0.95
+  ); 
+  // light += directionalLight(
+  //   vec3(1.0),
+  //   1.0,
+  //   normal,
+  //   vec3(-1.0, 0.5, 0.0),
+  //   viewDirection,
+  //   30.0
+  // ); 
+
+  color *= light;
+
     gl_FragColor = vec4(color, 1.0);
 
 
