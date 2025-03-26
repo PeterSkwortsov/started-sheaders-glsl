@@ -20,9 +20,13 @@ const scene = new THREE.Scene();
 // Loaders
 const gltfLoader = new GLTFLoader();
 
-const debugObject = {}
 
 
+const materialParametrs = {};
+materialParametrs.color = '#203340';
+materialParametrs.fon = '#242e27';
+materialParametrs.shadowColor = '#8e19b8';
+materialParametrs.lightColor = '#8e19b8';
 /**
  * Sizes
  */
@@ -38,6 +42,8 @@ window.addEventListener("resize", () => {
   sizes.height = window.innerHeight;
   sizes.pixelRatio = Math.min(window.devicePixelRatio, 2);
 
+  material.uniforms.uResolution.value.set(sizes.width * sizes.pixelRatio, sizes.height * sizes.pixelRatio)
+
   // Update camera
   camera.aspect = sizes.width / sizes.height;
   camera.updateProjectionMatrix();
@@ -52,7 +58,7 @@ window.addEventListener("resize", () => {
  */
 // Base camera
 const camera = new THREE.PerspectiveCamera(
-  25,
+  45,
   sizes.width / sizes.height,
   0.1,
   100
@@ -74,7 +80,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 3;
 renderer.setSize(sizes.width, sizes.height);
 renderer.setPixelRatio(sizes.pixelRatio);
-renderer.setClearColor("black");
+renderer.setClearColor(materialParametrs.fon);
 
 // Enable shadows
 renderer.shadowMap.enabled = true;
@@ -83,65 +89,91 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Optional, softer shadows
 /**
  * Material
  */
-const geometry = new THREE.PlaneGeometry(2, 2, 500, 500);
-geometry.deleteAttribute('normal');
-geometry.deleteAttribute('uv');
-debugObject.depthColor = '#151c37';
-debugObject.surfaceColor = '#ff4000';
 
 
+const material = new THREE.ShaderMaterial(
+  {
+    vertexShader: shadingVertexShader,
+    fragmentShader: shadingFragmentShader,
 
-const material = new THREE.ShaderMaterial({
-  vertexShader: shadingVertexShader,
-  fragmentShader: shadingFragmentShader,
-  side: THREE.DoubleSide,
-  uniforms: {
-    uTime: { value: 0 },
-
-    uBigWavesElevation: { value: 0.2 },
-    uBigWavesFrequency: { value: new THREE.Vector2(2.5, 1.5) }, // вектор 2 означает направление по - x, y
-    uBigWavesSpeed: { value: 0.5 },
-
-    uSmallWavesElevation: { value: 0.15 },
-    uSmallWavesFrequency: { value: 3.0 },
-    uSmallWavesSpeed: { value: 0.2 },
-    uSmallWavesIterations: { value: 4 },
-
-
-    udDephColor: { value: new THREE.Color(debugObject.depthColor) },
-    uSurfaceColor: { value: new THREE.Color(debugObject.surfaceColor) },
-    uColorOffset: { value: 0.0925 },
-    uColorMultiplier: { value: 1.0 },
-
-
+    uniforms: {
+      uTime: new THREE.Uniform(0),
+      uColor: new THREE.Uniform(new THREE.Color(materialParametrs.color)),
+      uResolution: new THREE.Uniform(new THREE.Vector2(sizes.width * sizes.pixelRatio, sizes.height * sizes.pixelRatio)),
+      unShadowRepetitions: new THREE.Uniform(100),
+      uShadowColor: new THREE.Uniform(new THREE.Color(materialParametrs.shadowColor)),
+      uLightRepetitions: new THREE.Uniform(80),
+      uLightColor: new THREE.Uniform(new THREE.Color(materialParametrs.lightColor)),
+    },
+    // transparent: false,
+    // side: THREE.DoubleSide,
+    // depthWrite: false,
+    // blending: THREE.AdditiveBlending
   }
-});
-const mesh = new THREE.Mesh(geometry, material);
-mesh.rotation.x = Math.PI * 0.5;
-scene.add(mesh);
+)
 
-camera.position.z = 2;
-camera.position.y = 2;
+
+
 const controls = new OrbitControls(camera, renderer.domElement);
 
-gui.add(mesh.material.uniforms.uBigWavesElevation, 'value').min(0).max(2).step(0.01).name('высота волны');
-gui.add(mesh.material.uniforms.uBigWavesFrequency.value, 'x').min(0).max(10).step(0.01).name('частота волны по x');
-gui.add(mesh.material.uniforms.uBigWavesFrequency.value, 'y').min(0).max(10).step(0.01).name('частота волны по y');
-gui.add(mesh.material.uniforms.uBigWavesSpeed, 'value').min(0).max(5).step(0.01).name('скорость волны');
+const sphery = new THREE.Mesh(
+  new THREE.SphereGeometry(1.8, 32, 16),
+  material
+)
+sphery.position.x = -5
+scene.add(sphery)
+
+const tourusKnotGeometry = new THREE.TorusKnotGeometry(1.1, 0.3, 128, 32)
+
+const tourusKnot = new THREE.Mesh(tourusKnotGeometry, material)
+scene.add(tourusKnot)
 
 
-gui.addColor(debugObject, 'depthColor').name('цвет глубины').onChange(() => {
-  mesh.material.uniforms.udDephColor.value.set(debugObject.depthColor);
+
+let suzanna = null;
+gltfLoader.load('suzanne.glb',
+  (gltf) => {
+    suzanna = gltf.scene
+    suzanna.scale.set(1.7, 1.7, 1.7)
+    suzanna.position.set(5, 0, 0)
+    suzanna.traverse((child) => {
+      if (child.isMesh)
+        child.material = material
+    })
+    scene.add(suzanna)
+  }
+
+
+)
+
+
+
+gui
+  .addColor(materialParametrs, 'color')
+  .onChange(() => {
+    material.uniforms.uColor.value.set(materialParametrs.color)
+  })
+gui
+  .addColor(materialParametrs, 'fon')
+  .onChange(() => {
+    renderer.setClearColor(materialParametrs.fon)
+  })
+
+gui
+  .add(material.uniforms.unShadowRepetitions, 'value').min(1).max(300).step(1)
+
+gui.addColor(materialParametrs, 'shadowColor')
+.onChange(() => {
+  material.uniforms.uShadowColor.value.set(materialParametrs.shadowColor)
 })
-gui.addColor(debugObject, 'surfaceColor').name('цвет поверхности').onChange(() => {
-  mesh.material.uniforms.uSurfaceColor.value.set(debugObject.surfaceColor);
+gui
+  .add(material.uniforms.uLightRepetitions, 'value').min(1).max(300).step(1)
+
+gui.addColor(materialParametrs, 'lightColor')
+.onChange(() => {
+  material.uniforms.uLightColor.value.set(materialParametrs.lightColor)
 })
-gui.add(mesh.material.uniforms.uColorOffset, 'value').min(0).max(5).step(0.01).name('смещение цвета');
-gui.add(mesh.material.uniforms.uColorMultiplier, 'value').min(0).max(10).step(0.01).name('множитель цвета');
-gui.add(mesh.material.uniforms.uSmallWavesElevation, 'value').min(0).max(2).step(0.01).name('высота волны');
-gui.add(mesh.material.uniforms.uSmallWavesFrequency, 'value').min(0).max(30).step(0.01).name('частота волны');
-gui.add(mesh.material.uniforms.uSmallWavesSpeed, 'value').min(0).max(5).step(0.01).name('скорость волны');
-gui.add(mesh.material.uniforms.uSmallWavesIterations, 'value').min(0).max(5).step(1.0).name('количество волны');
+
 
 
 /**
@@ -151,10 +183,12 @@ const clock = new THREE.Clock();
 
 const tick = () => {
   const elapsedTime = clock.getElapsedTime();
+  tourusKnot.rotation.x = elapsedTime * 0.3
+  tourusKnot.rotation.y = elapsedTime * 0.3
 
-  // Rotate objects
-  mesh.material.uniforms.uTime.value = elapsedTime;
-  // Update controls
+  if(suzanna) {
+    suzanna.rotation.y = elapsedTime * 0.3
+  }
   controls.update();
 
   // Render
