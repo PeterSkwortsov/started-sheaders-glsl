@@ -4,6 +4,9 @@ import GUI from "lil-gui";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import shadingVertexShader from "./shaders/shading/vertex.glsl";
 import shadingFragmentShader from "./shaders/shading/fragment.glsl";
+import atmosphereVertexShader from "./shaders/atmosphere/vertex.glsl";
+import atmosphereFragmentShader from "./shaders/atmosphere/fragment.glsl";
+
 
 /**
  * Base
@@ -19,14 +22,21 @@ const scene = new THREE.Scene();
 
 // Loaders
 const gltfLoader = new GLTFLoader();
+const textureLoader = new THREE.TextureLoader();
 
 
 
 const materialParametrs = {};
-materialParametrs.color = '#203340';
-materialParametrs.fon = '#242e27';
+// materialParametrs.color = '#203340';
+materialParametrs.fon = '#000011';
 materialParametrs.shadowColor = '#8e19b8';
 materialParametrs.lightColor = '#8e19b8';
+
+const earthParameters = {};
+earthParameters.atmosphereDayColor = "#00aaff";
+earthParameters.atmosphereTwilightColor = "#ff6600";
+
+
 /**
  * Sizes
  */
@@ -63,9 +73,9 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   100
 );
-camera.position.x = 7;
-camera.position.y = 5;
-camera.position.z = 10;
+// camera.position.x = 7;
+// camera.position.y = 5;
+camera.position.z = 8;
 scene.add(camera);
 
 
@@ -86,95 +96,107 @@ renderer.setClearColor(materialParametrs.fon);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Optional, softer shadows
 
-/**
- * Material
- */
-
-
-const material = new THREE.ShaderMaterial(
-  {
-    vertexShader: shadingVertexShader,
-    fragmentShader: shadingFragmentShader,
-
-    uniforms: {
-      uTime: new THREE.Uniform(0),
-      uColor: new THREE.Uniform(new THREE.Color(materialParametrs.color)),
-      uResolution: new THREE.Uniform(new THREE.Vector2(sizes.width * sizes.pixelRatio, sizes.height * sizes.pixelRatio)),
-      unShadowRepetitions: new THREE.Uniform(100),
-      uShadowColor: new THREE.Uniform(new THREE.Color(materialParametrs.shadowColor)),
-      uLightRepetitions: new THREE.Uniform(80),
-      uLightColor: new THREE.Uniform(new THREE.Color(materialParametrs.lightColor)),
-    },
-    // transparent: false,
-    // side: THREE.DoubleSide,
-    // depthWrite: false,
-    // blending: THREE.AdditiveBlending
-  }
-)
-
-
 
 const controls = new OrbitControls(camera, renderer.domElement);
 
-const sphery = new THREE.Mesh(
-  new THREE.SphereGeometry(1.8, 32, 16),
-  material
-)
-sphery.position.x = -5
-scene.add(sphery)
-
-const tourusKnotGeometry = new THREE.TorusKnotGeometry(1.1, 0.3, 128, 32)
-
-const tourusKnot = new THREE.Mesh(tourusKnotGeometry, material)
-scene.add(tourusKnot)
+const earthDayTexture = textureLoader.load('./earth/day.jpg');
+earthDayTexture.colorSpace = THREE.SRGBColorSpace;
+earthDayTexture.anisotropy = 8
 
 
+const earthNightTexture = textureLoader.load('./earth/night.jpg');
+earthNightTexture.colorSpace = THREE.SRGBColorSpace; // Всегда добавляй этот параметр! Чтобы картинка была ярче, сочнее
+earthNightTexture.anisotropy = 8 // Anisotropy это поле, которое контролирует растяжение света. С его помощью создают, например, эффект полосатого или матового стекла.
 
-let suzanna = null;
-gltfLoader.load('suzanne.glb',
-  (gltf) => {
-    suzanna = gltf.scene
-    suzanna.scale.set(1.7, 1.7, 1.7)
-    suzanna.position.set(5, 0, 0)
-    suzanna.traverse((child) => {
-      if (child.isMesh)
-        child.material = material
-    })
-    scene.add(suzanna)
-  }
-
-
-)
+const earthSpecularCloudsTexture = textureLoader.load('./earth/specularClouds.jpg');
+earthSpecularCloudsTexture.colorSpace = THREE.SRGBColorSpace;
+earthSpecularCloudsTexture.anisotropy = 8
 
 
 
-gui
-  .addColor(materialParametrs, 'color')
-  .onChange(() => {
-    material.uniforms.uColor.value.set(materialParametrs.color)
-  })
-gui
-  .addColor(materialParametrs, 'fon')
-  .onChange(() => {
-    renderer.setClearColor(materialParametrs.fon)
-  })
+const earthGeometry = new THREE.SphereGeometry(2, 64, 64);
+const earthMaterial = new THREE.ShaderMaterial({
+  vertexShader: shadingVertexShader,
+  fragmentShader: shadingFragmentShader,
+  uniforms: {
+    uDayTexture: new THREE.Uniform(earthDayTexture),
+    uNightTexture: new THREE.Uniform(earthNightTexture),
+    uSpecularCloudsTexture: new THREE.Uniform(earthSpecularCloudsTexture),
+    uSunDirection: new THREE.Uniform(new THREE.Vector3(0.0, 0.0, 1.0)),
 
-gui
-  .add(material.uniforms.unShadowRepetitions, 'value').min(1).max(300).step(1)
+    uAtmosphereDayColor: new THREE.Uniform(new THREE.Color(earthParameters.atmosphereDayColor)),
+    uAtmosphereTwilightColor: new THREE.Uniform(new THREE.Color(earthParameters.atmosphereTwilightColor)),
 
-gui.addColor(materialParametrs, 'shadowColor')
-.onChange(() => {
-  material.uniforms.uShadowColor.value.set(materialParametrs.shadowColor)
+  },
+  side: THREE.DoubleSide,
+  wireframe: false
+});
+
+const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+scene.add(earth);
+
+
+const atmosphereMaterial = new THREE.ShaderMaterial({
+  side: THREE.BackSide,
+  transparent: true,
+  vertexShader: atmosphereVertexShader,
+  fragmentShader: atmosphereFragmentShader,
+
+  uniforms: {
+    
+    uSunDirection: new THREE.Uniform(new THREE.Vector3(0.0, 0.0, 1.0)),
+
+    uAtmosphereDayColor: new THREE.Uniform(new THREE.Color(earthParameters.atmosphereDayColor)),
+    uAtmosphereTwilightColor: new THREE.Uniform(new THREE.Color(earthParameters.atmosphereTwilightColor)),
+
+  },
 })
-gui
-  .add(material.uniforms.uLightRepetitions, 'value').min(1).max(300).step(1)
+const atmosphere = new THREE.Mesh(earthGeometry, atmosphereMaterial);
+atmosphere.scale.set(1.8, 1.10, 1.10);
+scene.add(atmosphere);
 
-gui.addColor(materialParametrs, 'lightColor')
-.onChange(() => {
-  material.uniforms.uLightColor.value.set(materialParametrs.lightColor)
+gui.addColor(earthParameters, "atmosphereDayColor").onChange(() => {
+  earthMaterial.uniforms.uAtmosphereDayColor.value.set(
+    earthParameters.atmosphereDayColor
+  )
+  atmosphereMaterial.uniforms.uAtmosphereDayColor.value.set(
+    earthParameters.atmosphereDayColor
+  )
+})
+gui.addColor(earthParameters, "atmosphereTwilightColor").onChange(() => {
+  earthMaterial.uniforms.uAtmosphereTwilightColor.value.set(
+    earthParameters.atmosphereTwilightColor
+  )
+  atmosphereMaterial.uniforms.uAtmosphereTwilightColor.value.set(
+    earthParameters.atmosphereTwilightColor
+  )
 })
 
 
+
+//солнце
+
+const sunSpherical = new THREE.Spherical(1, Math.PI * 0.5, 0.5);
+const sunDirection = new THREE.Vector3();
+
+const debugSun = new THREE.Mesh(
+  new THREE.IcosahedronGeometry(0.1, 5),
+  new THREE.MeshBasicMaterial()
+)
+scene.add(debugSun)
+
+const updateSun = () => {
+  sunDirection.setFromSpherical(sunSpherical);
+  debugSun.position.copy(sunDirection).multiplyScalar(5);
+
+  earthMaterial.uniforms.uSunDirection.value.copy(sunDirection);
+  atmosphereMaterial.uniforms.uSunDirection.value.copy(sunDirection);
+}
+
+updateSun()
+
+gui.add(sunSpherical, 'phi').min(0).max(Math.PI * 2).onChange(updateSun);
+gui.add(sunSpherical, 'theta').min(-Math.PI * 2).max(Math.PI * 2).onChange(updateSun);
 
 /**
  * Animate
@@ -183,12 +205,8 @@ const clock = new THREE.Clock();
 
 const tick = () => {
   const elapsedTime = clock.getElapsedTime();
-  tourusKnot.rotation.x = elapsedTime * 0.3
-  tourusKnot.rotation.y = elapsedTime * 0.3
+  earth.rotation.y = elapsedTime * 0.1;
 
-  if(suzanna) {
-    suzanna.rotation.y = elapsedTime * 0.3
-  }
   controls.update();
 
   // Render

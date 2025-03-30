@@ -1,6 +1,5 @@
 varying vec3 vNormal;
 varying vec3 vPosition;
-varying vec2 vUv;
 
 void main()
 {
@@ -12,7 +11,6 @@ void main()
     vec3 modelNormal = (modelMatrix * vec4(normal, 0.0)).xyz;
 
     //Varying
-    vUv = uv;
     vNormal = modelNormal.xyz;
     vPosition = modelPosition.xyz;
 }
