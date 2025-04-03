@@ -1,16 +1,12 @@
-varying vec3 vNormal;
-varying vec3 vPosition;
+uniform vec2 uResolution;
 
 void main()
 {
-    // Position
     vec4 modelPosition = modelMatrix * vec4(position, 1.0);
-    gl_Position = projectionMatrix * viewMatrix * modelPosition;
+    vec4 viewPosition = viewMatrix * modelPosition;
+    vec4 projectedPosition = projectionMatrix * viewPosition;
+    gl_Position = projectedPosition;
 
-    //model normal
-    vec3 modelNormal = (modelMatrix * vec4(normal, 0.0)).xyz;
-
-    //Varying
-    vNormal = modelNormal.xyz;
-    vPosition = modelPosition.xyz;
+    gl_PointSize = 0.3 * uResolution.y;
+    gl_PointSize *= (1.0 / -viewPosition.z);
 }
